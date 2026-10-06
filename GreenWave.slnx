@@ -1,1 +1,3 @@
-<Solution />
+<Solution>
+  <Project Path="src/GreenWave.Domain/GreenWave.Domain.csproj" />
+</Solution>
