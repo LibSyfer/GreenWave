@@ -9,7 +9,7 @@ public sealed class GeneticSolver
 {
     public string Name => nameof(GeneticSolver);
 
-    public void Solve(MotionModel model, double delta)
+    public RouteResult? Solve(MotionModel model)
     {
         throw new NotImplementedException();
     }

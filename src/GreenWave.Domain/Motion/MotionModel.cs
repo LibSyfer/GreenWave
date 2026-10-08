@@ -17,7 +17,7 @@ public sealed class MotionModel
         var car = Problem.Vehicle;
 
         double a = speed >= start.Speed ? car.Acceleration : -car.Deceleration;
-        double accelerationDistance = Kinematics.AccelerationDistance(start.Speed, speed, a);
+        double accelerationDistance = Kinematics.AccelerationDistance(start.Speed, speed, a); // D_j
         double timeCorrection = Kinematics.TimeCorrection(start.Speed, speed, a);
 
         double arrivalTime = start.Time + segment.Length / speed + timeCorrection;

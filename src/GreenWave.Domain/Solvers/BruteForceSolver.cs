@@ -7,7 +7,7 @@ public sealed class BruteForceSolver
 {
     public string Name => nameof(BruteForceSolver);
 
-    public void Solve(MotionModel model, double delta)
+    public RouteResult? Solve(MotionModel model)
     {
         throw new NotImplementedException();
     }
