@@ -1,17 +1,34 @@
 import { useEffect, useMemo, useState } from 'react'
-import { fetchSamples, solve, solveDpTrace, type DpTraceResponse, type Sample, type SolveResponse, type SolverId } from './api'
+import {
+  fetchSamples,
+  solve,
+  solveDpTrace,
+  solveGaTrace,
+  type DpTraceResponse,
+  type GaRunOptions,
+  type GaTraceResponse,
+  type Sample,
+  type SolveResponse,
+  type SolverId,
+} from './api'
 import { DpView } from './DpView'
-import { ProblemForm } from './ProblemForm'
+import { GaView } from './GaView'
+import { Field, ProblemForm } from './ProblemForm'
 import { fromProblem, toProblem, type ProblemFormState } from './formModel'
 import { RouteTable } from './RouteTable'
 import { TimeDistanceChart } from './TimeDistanceChart'
-import { fmt } from './units'
+import { fmt, plural } from './units'
 
 const SOLVERS: { id: SolverId; title: string }[] = [
   { id: 'dp', title: 'Динамическое программирование' },
   { id: 'ga', title: 'Генетический алгоритм' },
   { id: 'bruteforce', title: 'Полный перебор' },
 ]
+
+type Result =
+  | { kind: 'plain'; data: SolveResponse }
+  | { kind: 'dp'; data: DpTraceResponse }
+  | { kind: 'ga'; data: GaTraceResponse }
 
 const SPEED_STEPS = [1, 2, 4, 5, 10]
 const TIME_STEPS = [0.1, 0.5, 1]
@@ -23,8 +40,9 @@ export default function App() {
   const [solver, setSolver] = useState<SolverId>('dp')
   const [speedStepKmh, setSpeedStepKmh] = useState(2)
   const [timeStep, setTimeStep] = useState(0.1)
-  // для ДП — ответ с трассой, для остальных — только маршрут
-  const [result, setResult] = useState<SolveResponse | DpTraceResponse | null>(null)
+  const [gaOptions, setGaOptions] = useState<GaRunOptions>({ populationSize: 60, generations: 100, seed: 1 })
+  // для ДП и ГА — ответ с трассой, для перебора — только маршрут
+  const [result, setResult] = useState<Result | null>(null)
   const [runId, setRunId] = useState(0)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -60,7 +78,11 @@ export default function App() {
     setError(null)
     try {
       setResult(
-        solver === 'dp' ? await solveDpTrace(problem, speedStepKmh, timeStep) : await solve(problem, solver, speedStepKmh),
+        solver === 'dp'
+          ? { kind: 'dp', data: await solveDpTrace(problem, speedStepKmh, timeStep) }
+          : solver === 'ga'
+            ? { kind: 'ga', data: await solveGaTrace(problem, speedStepKmh, gaOptions) }
+            : { kind: 'plain', data: await solve(problem, solver, speedStepKmh) },
       )
       setRunId(id => id + 1)
     } catch (e) {
@@ -121,6 +143,13 @@ export default function App() {
                 </select>
               </label>
             )}
+            {solver === 'ga' && (
+              <>
+                <Field label="Особей в поколении" value={gaOptions.populationSize} onChange={v => setGaOptions({ ...gaOptions, populationSize: v })} />
+                <Field label="Поколений" value={gaOptions.generations} onChange={v => setGaOptions({ ...gaOptions, generations: v })} />
+                <Field label="Зерно генератора" value={gaOptions.seed} onChange={v => setGaOptions({ ...gaOptions, seed: v })} />
+              </>
+            )}
             {solver === 'bruteforce' && form && (
               <p className="muted note">
                 Маршрутов: {gridSize(form, speedStepKmh)}<sup>{form.segments.length}</sup> ≈{' '}
@@ -139,34 +168,36 @@ export default function App() {
 
           {result && (
             <div className="summary">
-              {result.route ? (
+              {result.data.route ? (
                 <>
-                  <Metric label="Энергия" value={`${fmt(result.route.energy / 1000, 2)} кДж`} />
-                  <Metric label="Время" value={`${fmt(result.route.time)} с`} />
-                  <Metric label="Остановок" value={String(result.route.stops)} />
+                  <Metric label="Энергия" value={`${fmt(result.data.route.energy / 1000, 2)} кДж`} />
+                  <Metric label="Время" value={`${fmt(result.data.route.time)} с`} />
+                  <Metric label="Остановок" value={String(result.data.route.stops)} />
                 </>
               ) : (
                 <Metric label="Результат" value="решения нет" />
               )}
-              <Metric label="Расчёт" value={`${fmt(result.elapsedMs, 1)} мс`} muted />
+              <Metric label="Расчёт" value={`${fmt(result.data.elapsedMs, 1)} мс`} muted />
             </div>
           )}
 
-          {chartReady && result && 'trace' in result ? (
-            <DpView key={runId} problem={problem} response={result} />
+          {chartReady && result?.kind === 'dp' ? (
+            <DpView key={runId} problem={problem} response={result.data} />
+          ) : chartReady && result?.kind === 'ga' ? (
+            <GaView key={runId} problem={problem} response={result.data} />
           ) : (
             <div className="panel">
               {chartReady ? (
-                <TimeDistanceChart problem={problem} trajectory={result?.trajectory ?? null} />
+                <TimeDistanceChart problem={problem} trajectory={result?.data.trajectory ?? null} />
               ) : (
                 <p className="muted">Заполните длины сегментов, чтобы увидеть график.</p>
               )}
             </div>
           )}
 
-          {result?.route && problem && (
+          {result?.data.route && problem && (
             <div className="panel">
-              <RouteTable problem={problem} route={result.route} />
+              <RouteTable problem={problem} route={result.data.route} />
             </div>
           )}
         </section>
@@ -182,13 +213,6 @@ function gridSize(form: ProblemFormState, stepKmh: number) {
   let count = 0
   while (min + count * stepKmh < max - 1e-9) count++
   return count + 1
-}
-
-function plural(n: number, one: string, few: string, many: string) {
-  const mod10 = n % 10
-  const mod100 = n % 100
-  const word = mod10 === 1 && mod100 !== 11 ? one : mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14) ? few : many
-  return `${n} ${word}`
 }
 
 function Metric({ label, value, muted }: { label: string; value: string; muted?: boolean }) {

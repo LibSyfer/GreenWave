@@ -2,7 +2,7 @@ import { memo, useMemo, useState } from 'react'
 import type { DpStatus, DpTrace, DpTraceResponse, Problem } from './api'
 import { branch, buildIndex, sample, STATUS_COLORS, STATUS_HINTS, STATUS_LABELS, type DpIndex } from './dpModel'
 import { TimeDistanceChart, type ChartScales, type PickPoint } from './TimeDistanceChart'
-import { fmt, toKmh } from './units'
+import { fmt, segmentEnds, toKmh } from './units'
 
 const HIGHLIGHT_LIMIT = 3000
 const BRANCH_COLOR = '#2f6fd6'
@@ -335,9 +335,3 @@ function StatusBadge({ status }: { status: DpStatus }) {
 }
 
 const total = (counts: number[]) => counts.reduce((a, b) => a + b, 0)
-
-/** Путь от старта до конца каждого сегмента, м. */
-const segmentEnds = (problem: Problem) => {
-  let sum = 0
-  return problem.road.segments.map(s => (sum += s.length))
-}

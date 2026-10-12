@@ -612,3 +612,231 @@ button.secondary {
 button.secondary:hover {
   border-color: #9a9a94;
 }
+
+/* визуализация ГА */
+
+.ga-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.ga-toolbar input[type='range'] {
+  flex: 1;
+  accent-color: var(--text);
+}
+
+.ga-toolbar .play {
+  width: 110px;
+}
+
+.ga-gen {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.ga-path {
+  fill: none;
+  stroke-linejoin: round;
+}
+
+.ga-path.valid {
+  stroke: #1d1d1b;
+  stroke-opacity: 0.18;
+  stroke-width: 1;
+}
+
+.ga-path.invalid {
+  stroke: var(--red);
+  stroke-opacity: 0.22;
+  stroke-width: 1;
+}
+
+.ga-path.best {
+  stroke: #1d1d1b;
+  stroke-width: 2;
+  stroke-dasharray: 5 3;
+}
+
+.ga-path.selected {
+  stroke-width: 2.5;
+}
+
+.ga-line {
+  fill: none;
+  stroke-width: 2;
+}
+
+.ga-line.best {
+  stroke: var(--text);
+}
+
+.ga-line.average {
+  stroke: #a3a39d;
+}
+
+.ga-feasible-bar {
+  fill: #e4ece4;
+}
+
+.ga-marker {
+  stroke: #2f6fd6;
+  stroke-width: 1.5;
+}
+
+.ga-table-wrap {
+  max-height: 480px;
+  overflow: auto;
+}
+
+table.ga-table th,
+table.ga-table td {
+  padding: 3px 8px;
+  border-bottom: 1px solid var(--border);
+  text-align: right;
+  white-space: nowrap;
+}
+
+table.ga-table th {
+  position: sticky;
+  top: 0;
+  background: var(--panel);
+}
+
+table.ga-table th:last-child,
+table.ga-table td:last-child,
+table.ga-table th:nth-last-child(2),
+table.ga-table td:nth-last-child(2) {
+  text-align: left;
+}
+
+table.ga-table .gene-col {
+  padding: 2px 1px;
+  text-align: center;
+}
+
+table.ga-table tbody tr {
+  cursor: pointer;
+}
+
+table.ga-table tbody tr:hover {
+  background: #f7f7f5;
+}
+
+table.ga-table tbody tr.selected {
+  background: #eaf1fc;
+}
+
+.gene-cell {
+  display: inline-block;
+  min-width: 34px;
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-variant-numeric: tabular-nums;
+}
+
+.gene-cell.mutated {
+  outline: 2px solid #c0661c;
+  outline-offset: -2px;
+}
+
+.badge.invalid {
+  border-color: var(--red);
+  color: var(--red);
+}
+
+.lineage {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.chromosome-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.chromosome-label {
+  width: 230px;
+  flex-shrink: 0;
+  padding-top: 3px;
+}
+
+.chromosome {
+  display: flex;
+  gap: 4px;
+}
+
+.chromosome-gene {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.gene-box {
+  min-width: 44px;
+  padding: 3px 6px;
+  border-radius: 3px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.gene-box.src-a {
+  background: #dce8fb;
+}
+
+.gene-box.src-b {
+  background: #fbe5cc;
+}
+
+.gene-box.faded {
+  background: #f1f1ee;
+  color: #b9b9b3;
+}
+
+.gene-box.mutated {
+  outline: 2px solid #c0661c;
+  outline-offset: -2px;
+}
+
+.mutation-note {
+  font-size: 11px;
+  color: #c0661c;
+}
+
+.cut {
+  position: absolute;
+  left: -3px;
+  top: -4px;
+  bottom: -4px;
+  border-left: 2px dashed #1d1d1b;
+}
+
+.tournaments {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.contestant {
+  padding: 2px 0;
+}
+
+.contestant.winner {
+  font-weight: 600;
+}
+
+.winner-mark {
+  color: #2f6fd6;
+  font-weight: 400;
+}
+
+.gene-history {
+  margin: 4px 0 0;
+  padding-left: 18px;
+  line-height: 1.7;
+}

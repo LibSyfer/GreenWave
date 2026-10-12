@@ -66,6 +66,31 @@ app.MapPost("/api/solve/dp/trace", (DpTraceRequest request) =>
     }
 });
 
+app.MapPost("/api/solve/ga/trace", (GaTraceRequest request) =>
+{
+    try
+    {
+        if ((long)request.PopulationSize * (request.Generations + 1) > GaTraceDto.MaxIndividuals)
+            throw new ArgumentException(
+                $"Трасса ГА слишком большая: {request.PopulationSize} × {request.Generations + 1} особей (допустимо {GaTraceDto.MaxIndividuals:N0}).");
+
+        var model = new MotionModel(request.Problem);
+        var options = new GaOptions(request.SpeedStepKmh / 3.6, request.PopulationSize, request.Generations, Seed: request.Seed);
+        var solver = new GeneticSolver(options);
+
+        var sw = Stopwatch.StartNew();
+        var (route, trace) = solver.SolveTraced(model);
+        sw.Stop();
+
+        var trajectory = route is null ? null : Trajectory.Build(request.Problem, route.Segments);
+        return Results.Ok(new GaTraceResponse(route, trajectory, sw.Elapsed.TotalMilliseconds, GaTraceDto.From(trace, options)));
+    }
+    catch (ArgumentException e)
+    {
+        return Results.Problem(e.Message, statusCode: StatusCodes.Status400BadRequest);
+    }
+});
+
 app.Run();
 
 // Полный перебор растёт как (число скоростей)^(число сегментов) — ограничиваем, чтобы не повесить сервер.
@@ -92,3 +117,7 @@ record SolveResponse(string Solver, RouteResult? Route, IReadOnlyList<Trajectory
 record DpTraceRequest(GreenWaveProblem Problem, double SpeedStepKmh, double TimeStep = 0.1);
 
 record DpTraceResponse(RouteResult? Route, IReadOnlyList<TrajectoryPoint>? Trajectory, double ElapsedMs, DpTraceDto Trace);
+
+record GaTraceRequest(GreenWaveProblem Problem, double SpeedStepKmh, int PopulationSize = 60, int Generations = 100, int Seed = 1);
+
+record GaTraceResponse(RouteResult? Route, IReadOnlyList<TrajectoryPoint>? Trajectory, double ElapsedMs, GaTraceDto Trace);
