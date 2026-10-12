@@ -1,4 +1,7 @@
 <Solution>
+  <Folder Name="/src/">
+    <Project Path="src/GreenWave.Api/GreenWave.Api.csproj" />
+  </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/GreenWave.Domain.Tests/GreenWave.Domain.Tests.csproj" />
   </Folder>
