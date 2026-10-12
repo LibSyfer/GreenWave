@@ -1,4 +1,4 @@
-﻿using GreenWave.Domain.Entities;
+using GreenWave.Domain.Entities;
 using GreenWave.Domain.Models;
 
 namespace GreenWave.Domain.Motion;
@@ -9,6 +9,7 @@ public sealed class MotionModel
 
     public MotionModel(GreenWaveProblem problem)
     {
+        problem.Validate();
         Problem = problem;
     }
 
@@ -36,16 +37,32 @@ public sealed class MotionModel
                 Math.Max(0, accelerationDistance - segment.Length));
         }
 
-        var pass = segment.Light.Pass(arrivalTime, Problem.SafetyMargin);
-        double endSpeed = pass.Stopped ? 0 : speed;
-        double brakingDistance = pass.Stopped ? Kinematics.AccelerationDistance(speed, 0, -car.Deceleration) : 0;
+        var light = segment.Light;
+        double phase = light.Phase(arrivalTime);
+
+        if (!light.Pass(arrivalTime, Problem.SafetyMargin).Stopped)
+        {
+            return new SegmentResult(
+                speed,
+                arrivalTime,
+                phase,
+                false,
+                new CarState(arrivalTime, speed),
+                energy,
+                Math.Max(0, accelerationDistance - segment.Length));
+        }
+
+        // На скорости speed машина не проезжает — тормозит до остановки у стоп-линии и ждёт.
+        double brakingDistance = Kinematics.AccelerationDistance(speed, 0, -car.Deceleration);
+        double stopTime = arrivalTime + Kinematics.StopDelay(speed, car.Deceleration);
+        double passTime = light.NextPassTime(stopTime, Problem.SafetyMargin);
 
         return new SegmentResult(
             speed,
-            arrivalTime,
-            pass.Phase,
-            pass.Stopped,
-            new CarState(pass.PassTime, endSpeed),
+            stopTime,
+            phase,
+            true,
+            new CarState(passTime, 0),
             energy,
             Math.Max(0, accelerationDistance + brakingDistance - segment.Length));
     }

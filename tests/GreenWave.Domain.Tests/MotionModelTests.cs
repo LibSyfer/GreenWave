@@ -13,7 +13,7 @@ public class MotionModelTests
     private static MotionModel Model(params Segment[] segments) => new(new GreenWaveProblem(
         Road: new Road(segments),
         Vehicle: Car,
-        Limits: new Limits(MinSpeed: 0, MaxSpeed: 100, MaxTime: 1000),
+        Limits: new Limits(MinSpeed: 1, MaxSpeed: 100, MaxTime: 1000),
         InitialSpeed: 0,
         SafetyMargin: 0));
 
@@ -50,17 +50,45 @@ public class MotionModelTests
     }
 
     [Fact]
-    public void Drive_OnRed_StopsAndWaitsForGreen()
+    public void Drive_OnRed_BrakesStopsAndWaitsForGreen()
     {
-        // прибытие при 10 м/с за 30 с — зелёный [0, 20), следующий с 60
+        // на 10 м/с прибытие было бы в 30 с — красный (зелёный [0, 20), следующий с 60).
+        // Торможение 10→0 при 2.5 м/с²: 20 м за 4 с вместо 2 с равномерно → у стоп-линии в 32 с.
         var segment = new Segment(300, new TrafficLight(60, 0, 20));
         var model = Model(segment);
 
         var result = model.Drive(segment, new CarState(0, 10), 10);
 
         Assert.True(result.Stopped);
-        Assert.Equal(30, result.ArrivalTime, Eps);
+        Assert.Equal(30, result.Phase!.Value, Eps);
+        Assert.Equal(32, result.ArrivalTime, Eps);
         Assert.Equal(new CarState(60, 0), result.ResultState);
+    }
+
+    [Fact]
+    public void Drive_GreenStartsWhileBraking_PassesFromStandstillAtStopTime()
+    {
+        // на 10 м/с прибытие было бы в 59 с — красный; пока тормозит, в 60 с включается зелёный,
+        // у стоп-линии машина в 61 с со скоростью 0 и сразу проезжает
+        var segment = new Segment(590, new TrafficLight(60, 0, 20));
+        var model = Model(segment);
+
+        var result = model.Drive(segment, new CarState(0, 10), 10);
+
+        Assert.True(result.Stopped);
+        Assert.Equal(new CarState(61, 0), result.ResultState);
+    }
+
+    [Fact]
+    public void Drive_OnRed_WithMargin_WaitsForGreenStartPlusMargin()
+    {
+        var segment = new Segment(300, new TrafficLight(60, 0, 20));
+        var model = new MotionModel(new GreenWaveProblem(
+            new Road([segment]), Car, new Limits(1, 100, 1000), InitialSpeed: 0, SafetyMargin: 3));
+
+        var result = model.Drive(segment, new CarState(0, 10), 10);
+
+        Assert.Equal(new CarState(63, 0), result.ResultState);
     }
 
     [Fact]

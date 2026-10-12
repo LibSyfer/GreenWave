@@ -73,12 +73,24 @@ public class TrafficLightTests
         Assert.True(pass.PassTime >= 70);
     }
 
-    [Fact(Skip = "Известная ошибка: после красного проезд разрешается в r = 0, без учёта SafetyMargin")]
+    [Fact]
     public void Pass_WithMargin_OnRed_WaitsForGreenStartPlusMargin()
     {
         var pass = Light.Pass(45, 5);
 
         Assert.True(pass.Stopped);
         Assert.Equal(75, pass.PassTime, Eps);
+    }
+
+    [Theory]
+    [InlineData(25, 0, 25)]
+    [InlineData(45, 0, 70)]
+    [InlineData(5, 0, 10)]
+    [InlineData(12, 5, 15)]
+    [InlineData(37, 5, 75)]
+    [InlineData(35, 5, 35)]
+    public void NextPassTime_IsEarliestAllowedMoment(double t, double margin, double expected)
+    {
+        Assert.Equal(expected, Light.NextPassTime(t, margin), Eps);
     }
 }

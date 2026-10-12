@@ -12,8 +12,7 @@ public class SolverComparisonTests
 {
     private const double EnergyEps = 1e-6;
 
-    private static double[] Speeds(int stepKmh) =>
-        Enumerable.Range(0, 40 / stepKmh + 1).Select(k => (20.0 + stepKmh * k) / 3.6).ToArray();
+    private static double Kmh(double kmh) => kmh / 3.6;
 
     public static TheoryData<string> SampleNames => ["TestProblem1", "A120", "A110", "B106", "B90"];
 
@@ -31,7 +30,7 @@ public class SolverComparisonTests
     [MemberData(nameof(SampleNames))]
     public void Samples_DpMatchesBruteForce(string name)
     {
-        AssertSameOptimum(new MotionModel(Sample(name)), Speeds(2));
+        AssertSameOptimum(new MotionModel(Sample(name)), Kmh(2));
     }
 
     private static IEnumerable<int> SeedRange => Enumerable.Range(0, 200);
@@ -42,36 +41,42 @@ public class SolverComparisonTests
     [MemberData(nameof(Seeds))]
     public void RandomProblems_DpMatchesBruteForce(int seed)
     {
-        AssertSameOptimum(new MotionModel(RandomProblem(seed)), Speeds(4));
+        AssertSameOptimum(new MotionModel(RandomProblem(seed)), Kmh(4));
     }
 
     /// <summary>Генератор должен давать разные случаи, иначе сравнение выше ничего не проверяет.</summary>
     [Fact]
     public void RandomProblems_CoverFeasibleInfeasibleAndStops()
     {
-        var routes = SeedRange
-            .Select(seed => new BruteForceSolver(Speeds(4)).Solve(new MotionModel(RandomProblem(seed))))
+        var problems = SeedRange.Select(RandomProblem).ToArray();
+        var routes = problems
+            .Select(problem => new BruteForceSolver(Kmh(4)).Solve(new MotionModel(problem)))
             .ToArray();
 
         int infeasible = routes.Count(r => r is null);
         int withStops = routes.Count(r => r is { Stops: > 0 });
         int withoutStops = routes.Count(r => r is { Stops: 0 });
+        int withMargin = problems.Count(p => p.SafetyMargin > 0);
 
         Assert.True(infeasible >= 10, $"без решения: {infeasible}");
         Assert.True(withStops >= 10, $"с остановками: {withStops}");
         Assert.True(withoutStops >= 10, $"без остановок: {withoutStops}");
+        Assert.True(withMargin >= 10, $"с SafetyMargin > 0: {withMargin}");
     }
 
-    private static void AssertSameOptimum(MotionModel model, double[] speeds)
+    private static void AssertSameOptimum(MotionModel model, double speedStep)
     {
-        var exact = new BruteForceSolver(speeds).Solve(model);
-        var dp = new DynamicProgrammingSolver(speeds).Solve(model);
+        var exact = new BruteForceSolver(speedStep).Solve(model);
+        var dp = new DynamicProgrammingSolver(new DpOptions(speedStep)).Solve(model);
+        var dpNoPruning = new DynamicProgrammingSolver(new DpOptions(speedStep, RemainderPruning: false)).Solve(model);
 
         Assert.Equal(exact is null, dp is null);
-        if (exact is null || dp is null) return;
+        Assert.Equal(exact is null, dpNoPruning is null);
+        if (exact is null || dp is null || dpNoPruning is null) return;
 
         AssertValid(model.Problem, dp);
         Assert.Equal(exact.Energy, dp.Energy, EnergyEps);
+        Assert.Equal(exact.Energy, dpNoPruning.Energy, EnergyEps);
     }
 
     /// <summary>Маршрут ДП должен быть реальным: пересчёт по модели даёт те же числа.</summary>
@@ -96,6 +101,7 @@ public class SolverComparisonTests
     /// <summary>
     /// Случайная дорога из 2–4 сегментов; последний сегмент без светофора с вероятностью 1/2.
     /// MaxTime — от 1.2 до 2.5 минимально возможного времени на максимальной скорости.
+    /// SafetyMargin — 0 или 1–5 с (зелёный не короче 12 с, так что проехать всегда можно).
     /// </summary>
     private static GreenWaveProblem RandomProblem(int seed)
     {
@@ -128,6 +134,6 @@ public class SolverComparisonTests
             Vehicle: new Vehicle(Mass: 1500, Acceleration: 1.5, Deceleration: 2.5),
             Limits: new Limits(MinSpeed: 20 / 3.6, MaxSpeed: maxSpeed, MaxTime: Math.Round(minTime * Uniform(1.2, 2.5))),
             InitialSpeed: rnd.Next(2) == 0 ? 0 : Math.Round(Uniform(20, 60)) / 3.6,
-            SafetyMargin: 0);
+            SafetyMargin: rnd.Next(2) == 0 ? 0 : Math.Round(Uniform(1, 5)));
     }
 }

@@ -47,6 +47,24 @@ public class KinematicsTests
         Assert.Equal(expected, actual, Eps);
     }
 
+    /// <summary>
+    /// L / v + StopDelay должно совпадать с прямым расчётом:
+    /// равномерно до точки начала торможения, затем торможение до нуля.
+    /// </summary>
+    [Theory]
+    [InlineData(10, 2.5, 300)]
+    [InlineData(16, 2.5, 200)]
+    [InlineData(5, 1, 50)]
+    public void StopDelay_MatchesDirectComputation(double v, double d, double length)
+    {
+        double brakingDistance = Kinematics.AccelerationDistance(v, 0, -d);
+        double expected = (length - brakingDistance) / v + v / d;
+
+        double actual = length / v + Kinematics.StopDelay(v, d);
+
+        Assert.Equal(expected, actual, Eps);
+    }
+
     [Fact]
     public void AccelerationEnergy_Accelerating_IsKineticEnergyGain()
     {

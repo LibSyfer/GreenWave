@@ -14,6 +14,14 @@ public static class Kinematics
     public static double TimeCorrection(double startSpeed, double speed, double acceleration)
         => Math.Pow(speed - startSpeed, 2) / (2 * acceleration * speed);
 
+    /// <summary>
+    /// Насколько позже машина доедет до стоп-линии, если вместо проезда на скорости speed
+    /// она затормозит до нуля: торможение длится speed / d, а путь торможения при равномерном
+    /// движении занял бы speed / (2d).
+    /// </summary>
+    public static double StopDelay(double speed, double deceleration)
+        => speed / (2 * deceleration);
+
     // e_j
     public static double AccelerationEnergy(double mass, double startSpeed, double speed)
         => mass * Math.Max(0, speed * speed - startSpeed * startSpeed) / 2;

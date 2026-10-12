@@ -4,12 +4,12 @@ using GreenWave.Domain.Models;
 using GreenWave.Domain.Motion;
 using GreenWave.Domain.Solvers;
 
-double[] testSpeeds = Enumerable.Range(0, 21).Select(k => (20 + 2 * k) / 3.6).ToArray();
+double speedStep = 2 / 3.6;
 
 ISolver[] solvers =
 [
-    new DynamicProgrammingSolver(testSpeeds),
-    new BruteForceSolver(testSpeeds),
+    new DynamicProgrammingSolver(new DpOptions(speedStep)),
+    new BruteForceSolver(speedStep),
 ];
 
 Compare("TestProblem1", Samples.TestProblem1());

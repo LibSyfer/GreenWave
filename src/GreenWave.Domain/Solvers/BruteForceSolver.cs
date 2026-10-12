@@ -10,18 +10,20 @@ namespace GreenWave.Domain.Solvers;
 public sealed class BruteForceSolver
     : ISolver
 {
-    private readonly IReadOnlyList<double> _speeds;
+    private readonly double _speedStep;
     public string Name => nameof(BruteForceSolver);
 
-    public BruteForceSolver(IReadOnlyList<double> speeds)
+    /// <param name="speedStep">Шаг сетки скоростей, м/с.</param>
+    public BruteForceSolver(double speedStep)
     {
-        _speeds = speeds;
+        _speedStep = speedStep;
     }
 
     public RouteResult? Solve(MotionModel model)
     {
         var problem = model.Problem;
         var segments = problem.Road.Segments;
+        var speeds = problem.Limits.SpeedGrid(_speedStep);
         var path = new SegmentResult[segments.Length];
 
         SegmentResult[]? best = null;
@@ -41,7 +43,7 @@ public sealed class BruteForceSolver
                 return;
             }
 
-            foreach (double speed in _speeds)
+            foreach (double speed in speeds)
             {
                 var result = model.Drive(segments[index], state, speed);
 
