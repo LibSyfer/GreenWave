@@ -10,6 +10,7 @@ ISolver[] solvers =
 [
     new DynamicProgrammingSolver(new DpOptions(speedStep)),
     new BruteForceSolver(speedStep),
+    new GeneticSolver(new GaOptions(speedStep)),
 ];
 
 Compare("TestProblem1", Samples.TestProblem1());
@@ -22,6 +23,34 @@ Console.WriteLine();
 ShowTrace("TestProblem1", Samples.TestProblem1());
 ShowTrace("B, Tmax=106", Samples.StopIsBetter());
 ShowTrace("B, Tmax=90", Samples.StopIsBetter(90));
+
+ShowGaTrace("TestProblem1", Samples.TestProblem1());
+ShowGaTrace("B, Tmax=106", Samples.StopIsBetter());
+
+void ShowGaTrace(string title, GreenWaveProblem problem)
+{
+    var (route, trace) = new GeneticSolver(new GaOptions(speedStep)).SolveTraced(new MotionModel(problem));
+
+    Console.WriteLine($"Трасса ГА: {title} — поколений {trace.Generations.Count}, особей в поколении {trace.Generations[0].Population.Count}");
+    Console.WriteLine($"  {"поколение",-10}{"лучшая E, кДж",15}{"средняя E*",12}{"допустимых",12}{"скрещ.",8}{"копий",8}{"мутир.",8}");
+
+    foreach (var generation in trace.Generations.Where(g => g.Index % 10 == 0 || g.Index < 5))
+    {
+        var population = generation.Population;
+        var best = population.Single(x => x.Id == generation.BestId);
+        var feasible = population.Where(x => x.Feasible).ToArray();
+        string avg = feasible.Length > 0 ? $"{feasible.Average(x => x.Energy) / 1000:F2}" : "—";
+        string bestEnergy = best.Feasible ? $"{best.Energy / 1000:F2}" : "недопуст.";
+
+        Console.WriteLine($"  {generation.Index,-10}{bestEnergy,15}{avg,12}{feasible.Length,12}"
+            + $"{population.Count(x => x.Origin.Kind == GaOriginKind.Crossover),8}"
+            + $"{population.Count(x => x.Origin.Kind == GaOriginKind.Clone),8}"
+            + $"{population.Count(x => x.Origin.Mutations.Count > 0),8}");
+    }
+
+    Console.WriteLine($"  * средняя — по допустимым особям; лучшая особь id {trace.BestId}{(route is null ? " — решения нет" : "")}");
+    Console.WriteLine();
+}
 
 void ShowTrace(string title, GreenWaveProblem problem)
 {
