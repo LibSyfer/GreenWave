@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import type { Problem, TrajectoryPoint } from './api'
 import { fmt, toKmh } from './units'
 
@@ -9,23 +9,46 @@ const PLOT_W = W - M.left - M.right
 const PLOT_H = H - M.top - M.bottom
 const LIGHT_BAR = 6
 
+/** Перевод времени и пути в координаты SVG — для слоёв, которые рисуются поверх графика. */
+export interface ChartScales {
+  sx: (t: number) => number
+  sy: (d: number) => number
+  /** Путь от старта до конца каждого сегмента, м. */
+  ends: number[]
+  xMax: number
+}
+
 interface Props {
   problem: Problem
   trajectory: TrajectoryPoint[] | null
+  /** Дополнительный слой между светофорами и траекторией. */
+  overlay?: (scales: ChartScales) => ReactNode
+  /** Дополнительные пункты легенды. */
+  legend?: ReactNode
+  /** Время, которое тоже должно поместиться на оси, с. */
+  minTimeExtent?: number
 }
 
 /** График «время–расстояние»: фазы светофоров на их позициях и траектория машины. */
-export function TimeDistanceChart({ problem, trajectory }: Props) {
+export function TimeDistanceChart({ problem, trajectory, overlay, legend, minTimeExtent = 0 }: Props) {
   const [hoverTime, setHoverTime] = useState<number | null>(null)
 
   const segments = problem.road.segments
-  const ends = segments.map((_, i) => segments.slice(0, i + 1).reduce((sum, s) => sum + s.length, 0))
-  const totalLength = ends[ends.length - 1] ?? 0
   const lastTime = trajectory?.[trajectory.length - 1]?.time ?? 0
-  const xMax = niceCeil(Math.max(problem.limits.maxTime, lastTime) * 1.03)
+  const xMax = niceCeil(Math.max(problem.limits.maxTime, lastTime, minTimeExtent) * 1.03)
 
-  const sx = (t: number) => M.left + (t / xMax) * PLOT_W
-  const sy = (d: number) => M.top + PLOT_H - (d / totalLength) * PLOT_H
+  // масштабы стабильны между перерисовками от наведения мыши — слой overlay может их мемоизировать
+  const scales = useMemo<ChartScales>(() => {
+    const ends = segments.map((_, i) => segments.slice(0, i + 1).reduce((sum, s) => sum + s.length, 0))
+    const totalLength = ends[ends.length - 1] ?? 0
+    return {
+      sx: (t: number) => M.left + (t / xMax) * PLOT_W,
+      sy: (d: number) => M.top + PLOT_H - (d / totalLength) * PLOT_H,
+      ends,
+      xMax,
+    }
+  }, [segments, xMax])
+  const { sx, sy, ends } = scales
 
   const hover = hoverTime !== null && trajectory ? pointAt(trajectory, hoverTime) : null
 
@@ -43,6 +66,7 @@ export function TimeDistanceChart({ problem, trajectory }: Props) {
           <span><i className="swatch green" />зелёный</span>
           <span><i className="swatch red" />красный</span>
           <span><i className="swatch line" />траектория</span>
+          {legend}
         </div>
         <div className="readout">
           {hover
@@ -89,6 +113,8 @@ export function TimeDistanceChart({ problem, trajectory }: Props) {
         {/* Tmax */}
         <line x1={sx(problem.limits.maxTime)} x2={sx(problem.limits.maxTime)} y1={M.top} y2={M.top + PLOT_H} className="tmax" />
         <text x={sx(problem.limits.maxTime) - 4} y={M.top + 12} className="tick" textAnchor="end">Tmax</text>
+
+        {overlay?.(scales)}
 
         {trajectory && (
           <polyline points={trajectory.map(p => `${sx(p.time)},${sy(p.distance)}`).join(' ')} className="trajectory" />

@@ -5,9 +5,10 @@ import { defineConfig } from 'vite'
 export default defineConfig({
   plugins: [react()],
   server: {
-    // запросы /api уходят в GreenWave.Api (dotnet run --project src/GreenWave.Api)
+    // запросы /api уходят в GreenWave.Api (dotnet run --project src/GreenWave.Api);
+    // другой адрес API можно задать переменной окружения API_URL
     proxy: {
-      '/api': 'http://localhost:5144',
+      '/api': process.env.API_URL ?? 'http://localhost:5144',
     },
   },
 })

@@ -1,5 +1,6 @@
-﻿import { useEffect, useMemo, useState } from 'react'
-import { fetchSamples, solve, type Sample, type SolveResponse, type SolverId } from './api'
+import { useEffect, useMemo, useState } from 'react'
+import { fetchSamples, solve, solveDpTrace, type DpTraceResponse, type Sample, type SolveResponse, type SolverId } from './api'
+import { DpView } from './DpView'
 import { Field, ProblemForm } from './ProblemForm'
 import { fromProblem, toProblem, type ProblemFormState } from './formModel'
 import { RouteTable } from './RouteTable'
@@ -18,7 +19,9 @@ export default function App() {
   const [form, setForm] = useState<ProblemFormState | null>(null)
   const [solver, setSolver] = useState<SolverId>('dp')
   const [speedStepKmh, setSpeedStepKmh] = useState(2)
-  const [result, setResult] = useState<SolveResponse | null>(null)
+  // для ДП — ответ с трассой, для остальных — только маршрут
+  const [result, setResult] = useState<SolveResponse | DpTraceResponse | null>(null)
+  const [runId, setRunId] = useState(0)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
@@ -52,7 +55,8 @@ export default function App() {
     setLoading(true)
     setError(null)
     try {
-      setResult(await solve(problem, solver, speedStepKmh))
+      setResult(solver === 'dp' ? await solveDpTrace(problem, speedStepKmh) : await solve(problem, solver, speedStepKmh))
+      setRunId(id => id + 1)
     } catch (e) {
       setResult(null)
       setError(e instanceof Error ? e.message : String(e))
@@ -119,13 +123,17 @@ export default function App() {
             </div>
           )}
 
-          <div className="panel">
-            {chartReady ? (
-              <TimeDistanceChart problem={problem} trajectory={result?.trajectory ?? null} />
-            ) : (
-              <p className="muted">Заполните длины сегментов, чтобы увидеть график.</p>
-            )}
-          </div>
+          {chartReady && result && 'trace' in result ? (
+            <DpView key={runId} problem={problem} response={result} />
+          ) : (
+            <div className="panel">
+              {chartReady ? (
+                <TimeDistanceChart problem={problem} trajectory={result?.trajectory ?? null} />
+              ) : (
+                <p className="muted">Заполните длины сегментов, чтобы увидеть график.</p>
+              )}
+            </div>
+          )}
 
           {result?.route && problem && (
             <div className="panel">

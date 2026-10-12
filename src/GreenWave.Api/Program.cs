@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using GreenWave.Api;
 using GreenWave.Domain;
 using GreenWave.Domain.Models;
 using GreenWave.Domain.Motion;
@@ -45,6 +46,26 @@ app.MapPost("/api/solve", (SolveRequest request) =>
     }
 });
 
+app.MapPost("/api/solve/dp/trace", (DpTraceRequest request) =>
+{
+    try
+    {
+        var model = new MotionModel(request.Problem);
+        var solver = new DynamicProgrammingSolver(new DpOptions(request.SpeedStepKmh / 3.6, request.TimeStep));
+
+        var sw = Stopwatch.StartNew();
+        var (route, trace) = solver.SolveTraced(model);
+        sw.Stop();
+
+        var trajectory = route is null ? null : Trajectory.Build(request.Problem, route.Segments);
+        return Results.Ok(new DpTraceResponse(route, trajectory, sw.Elapsed.TotalMilliseconds, DpTraceDto.From(trace)));
+    }
+    catch (ArgumentException e)
+    {
+        return Results.Problem(e.Message, statusCode: StatusCodes.Status400BadRequest);
+    }
+});
+
 app.Run();
 
 // Полный перебор растёт как (число скоростей)^(число сегментов) — ограничиваем, чтобы не повесить сервер.
@@ -66,3 +87,8 @@ record SampleDto(string Id, string Title, GreenWaveProblem Problem);
 record SolveRequest(GreenWaveProblem Problem, string Solver, double SpeedStepKmh);
 
 record SolveResponse(string Solver, RouteResult? Route, IReadOnlyList<TrajectoryPoint>? Trajectory, double ElapsedMs);
+
+/// <param name="TimeStep">Ширина ячейки времени ДП, с.</param>
+record DpTraceRequest(GreenWaveProblem Problem, double SpeedStepKmh, double TimeStep = 0.1);
+
+record DpTraceResponse(RouteResult? Route, IReadOnlyList<TrajectoryPoint>? Trajectory, double ElapsedMs, DpTraceDto Trace);
