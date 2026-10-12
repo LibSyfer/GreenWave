@@ -1,4 +1,7 @@
 <Solution>
+  <Folder Name="/tests/">
+    <Project Path="tests/GreenWave.Domain.Tests/GreenWave.Domain.Tests.csproj" />
+  </Folder>
   <Project Path="src/ConsoleApp/ConsoleApp.csproj" Id="04a5c3ca-1115-442d-993a-95c5fed58e9a" />
   <Project Path="src/GreenWave.Domain/GreenWave.Domain.csproj" />
 </Solution>
