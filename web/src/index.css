@@ -373,6 +373,17 @@ table.route tbody tr:last-child td {
   fill: var(--text);
 }
 
+.chart svg.picking {
+  cursor: pointer;
+}
+
+.pick-ring {
+  fill: none;
+  stroke: #2f6fd6;
+  stroke-width: 2;
+  pointer-events: none;
+}
+
 /* визуализация ДП */
 
 .dp-toolbar {
@@ -405,7 +416,6 @@ table.route tbody tr:last-child td {
   fill: #1d1d1b;
   stroke: #fff;
   stroke-width: 0.8;
-  cursor: pointer;
 }
 
 .dp-node.stopped {
@@ -414,18 +424,9 @@ table.route tbody tr:last-child td {
   stroke-width: 1.4;
 }
 
-.dp-node:hover {
-  stroke: #2f6fd6;
-  stroke-width: 2;
-}
-
 .dp-point {
   stroke: #fff;
   stroke-width: 0.8;
-}
-
-.dp-child {
-  cursor: pointer;
 }
 
 .dp-child line {
@@ -577,4 +578,37 @@ table.dp-children tbody tr {
 
 table.dp-children tbody tr:hover {
   background: #f7f7f5;
+}
+
+.dp-nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  padding-bottom: 12px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.dp-nav .branch h3 {
+  margin-top: 0;
+}
+
+.dp-nav-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+button.secondary {
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: #fff;
+  white-space: nowrap;
+}
+
+button.secondary:hover {
+  border-color: #9a9a94;
 }

@@ -1,7 +1,7 @@
 import { memo, useMemo, useState } from 'react'
 import type { DpStatus, DpTrace, DpTraceResponse, Problem } from './api'
 import { branch, buildIndex, sample, STATUS_COLORS, STATUS_HINTS, STATUS_LABELS, type DpIndex } from './dpModel'
-import { TimeDistanceChart, type ChartScales } from './TimeDistanceChart'
+import { TimeDistanceChart, type ChartScales, type PickPoint } from './TimeDistanceChart'
 import { fmt, toKmh } from './units'
 
 const HIGHLIGHT_LIMIT = 3000
@@ -36,16 +36,21 @@ export function DpView({ problem, response }: { problem: Problem; response: DpTr
     Math.max(0, ...selectedChildren.map(i => c.time[i]), ...highlightedShown.map(i => c.time[i])),
   )
 
+  // выбрать можно выжившие состояния на показанных сегментах и варианты выбранного состояния
+  const pickable = useMemo<PickPoint[]>(() => {
+    const ends = segmentEnds(problem)
+    const ids = [...index.accepted.slice(0, step).flat(), ...(selected === null ? [] : index.children[selected])]
+    return ids.map(i => ({ id: i, time: c.time[i], distance: ends[c.layer[i]] }))
+  }, [problem, index, step, selected, c])
+
+  const describe = (i: number) => {
+    const status = trace.statusNames[c.status[i]]
+    const tail = status === 'Accepted' ? '' : ` · ${STATUS_LABELS[status]}`
+    return `сегмент ${c.layer[i] + 1} · ${fmt(toKmh(c.speed[i]), 0)} км/ч · проезд ${fmt(c.time[i])} с${c.stopped[i] ? ' (стоп)' : ''} · ${fmt(c.energy[i] / 1000, 2)} кДж${tail}`
+  }
+
   const overlay = (s: ChartScales) => (
-    <DpOverlay
-      trace={trace}
-      index={index}
-      scales={s}
-      step={step}
-      selected={selected}
-      highlighted={highlightedShown}
-      onSelect={setSelected}
-    />
+    <DpOverlay trace={trace} index={index} scales={s} step={step} selected={selected} highlighted={highlightedShown} />
   )
 
   const legend = (
@@ -64,7 +69,7 @@ export function DpView({ problem, response }: { problem: Problem; response: DpTr
             <span>Сегменты на графике: 1–{step}</span>
             <input type="range" min={1} max={layerCount} value={step} onChange={e => setStep(e.target.valueAsNumber)} />
           </label>
-          <span className="muted">Кликните по точке, чтобы разобрать состояние</span>
+          <span className="muted">Кликните рядом с точкой, чтобы разобрать состояние</span>
         </div>
         <TimeDistanceChart
           problem={problem}
@@ -72,6 +77,9 @@ export function DpView({ problem, response }: { problem: Problem; response: DpTr
           overlay={overlay}
           legend={legend}
           minTimeExtent={extent}
+          pickable={pickable}
+          onPick={setSelected}
+          describe={describe}
         />
       </div>
 
@@ -83,13 +91,32 @@ export function DpView({ problem, response }: { problem: Problem; response: DpTr
           )}
         </div>
         <div className="panel">
+          <div className="dp-nav">
+            {trace.bestPath.length > 0 ? (
+              <BranchLinks trace={trace} chain={trace.bestPath} title="Лучший маршрут" current={selected ?? undefined} onSelect={setSelected} />
+            ) : (
+              <p className="muted">Решения нет — лучшего маршрута нет.</p>
+            )}
+            <div className="dp-nav-actions">
+              {trace.bestPath.length > 0 && (
+                <button
+                  className="secondary"
+                  onClick={() => {
+                    setStep(layerCount)
+                    setSelected(trace.bestPath[trace.bestPath.length - 1])
+                  }}
+                >
+                  Показать лучший маршрут
+                </button>
+              )}
+              {selected !== null && <button className="secondary" onClick={() => setSelected(null)}>Сбросить выбор</button>}
+            </div>
+          </div>
+
           {selected === null ? (
-            <p className="muted">Состояние не выбрано. Кликните по точке на графике или по ветке лучшего маршрута ниже.</p>
+            <p className="muted note">Состояние не выбрано. Кликните рядом с точкой на графике или по шагу лучшего маршрута.</p>
           ) : (
             <NodeDetails trace={trace} index={index} node={selected} onSelect={setSelected} />
-          )}
-          {selected === null && trace.bestPath.length > 0 && (
-            <BranchLinks trace={trace} chain={trace.bestPath} title="Лучший маршрут" onSelect={setSelected} />
           )}
         </div>
       </div>
@@ -104,11 +131,10 @@ interface OverlayProps {
   step: number
   selected: number | null
   highlighted: number[]
-  onSelect: (i: number) => void
 }
 
 // memo: при наведении мыши график перерисовывается, а тысячи точек ДП — нет
-const DpOverlay = memo(function DpOverlay({ trace, index, scales, step, selected, highlighted, onSelect }: OverlayProps) {
+const DpOverlay = memo(function DpOverlay({ trace, index, scales, step, selected, highlighted }: OverlayProps) {
   const c = trace.candidates
   const { sx, sy, ends, xMax } = scales
 
@@ -141,10 +167,7 @@ const DpOverlay = memo(function DpOverlay({ trace, index, scales, step, selected
           cy={y(i)}
           r={index.best.has(i) ? 3.6 : 2.4}
           className={c.endSpeed[i] === 0 ? 'dp-node stopped' : 'dp-node'}
-          onClick={() => onSelect(i)}
-        >
-          <title>{`сегмент ${c.layer[i] + 1}, проезд ${fmt(c.time[i])} с, ${fmt(toKmh(c.endSpeed[i]), 0)} км/ч, ${fmt(c.energy[i] / 1000, 2)} кДж`}</title>
-        </circle>
+        />
       ))}
 
       {chainPath && <path d={chainPath} className="dp-branch" stroke={BRANCH_COLOR} />}
@@ -152,7 +175,7 @@ const DpOverlay = memo(function DpOverlay({ trace, index, scales, step, selected
       {children.map(i => {
         const status = trace.statusNames[c.status[i]]
         return (
-          <g key={`c${i}`} onClick={() => onSelect(i)} className="dp-child">
+          <g key={`c${i}`} className="dp-child">
             <line x1={px(i)} y1={py(i)} x2={x(i)} y2={y(i)} stroke={STATUS_COLORS[status]} strokeDasharray={status === 'Accepted' ? undefined : '3 3'} />
             <circle cx={x(i)} cy={y(i)} r={3.2} fill={STATUS_COLORS[status]} className="dp-point" />
           </g>
@@ -312,3 +335,9 @@ function StatusBadge({ status }: { status: DpStatus }) {
 }
 
 const total = (counts: number[]) => counts.reduce((a, b) => a + b, 0)
+
+/** Путь от старта до конца каждого сегмента, м. */
+const segmentEnds = (problem: Problem) => {
+  let sum = 0
+  return problem.road.segments.map(s => (sum += s.length))
+}

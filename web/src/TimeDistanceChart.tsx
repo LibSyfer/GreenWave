@@ -8,6 +8,8 @@ const M = { left: 60, right: 16, top: 12, bottom: 44 }
 const PLOT_W = W - M.left - M.right
 const PLOT_H = H - M.top - M.bottom
 const LIGHT_BAR = 6
+/** Радиус «притяжения» курсора к выбираемым точкам, в единицах viewBox (≈ пикселях). */
+const PICK_RADIUS = 16
 
 /** Перевод времени и пути в координаты SVG — для слоёв, которые рисуются поверх графика. */
 export interface ChartScales {
@@ -16,6 +18,13 @@ export interface ChartScales {
   /** Путь от старта до конца каждого сегмента, м. */
   ends: number[]
   xMax: number
+}
+
+/** Точка, которую можно выбрать кликом рядом с ней. */
+export interface PickPoint {
+  id: number
+  time: number
+  distance: number
 }
 
 interface Props {
@@ -27,11 +36,17 @@ interface Props {
   legend?: ReactNode
   /** Время, которое тоже должно поместиться на оси, с. */
   minTimeExtent?: number
+  /** Точки, к которым притягивается курсор; клик выбирает ближайшую. */
+  pickable?: PickPoint[]
+  onPick?: (id: number) => void
+  /** Подпись для точки под курсором (вместо показаний траектории). */
+  describe?: (id: number) => string
 }
 
 /** График «время–расстояние»: фазы светофоров на их позициях и траектория машины. */
-export function TimeDistanceChart({ problem, trajectory, overlay, legend, minTimeExtent = 0 }: Props) {
+export function TimeDistanceChart({ problem, trajectory, overlay, legend, minTimeExtent = 0, pickable, onPick, describe }: Props) {
   const [hoverTime, setHoverTime] = useState<number | null>(null)
+  const [picked, setPicked] = useState<PickPoint | null>(null)
 
   const segments = problem.road.segments
   const lastTime = trajectory?.[trajectory.length - 1]?.time ?? 0
@@ -55,9 +70,22 @@ export function TimeDistanceChart({ problem, trajectory, overlay, legend, minTim
   const onMove = (e: React.MouseEvent<SVGSVGElement>) => {
     const rect = e.currentTarget.getBoundingClientRect()
     const x = ((e.clientX - rect.left) / rect.width) * W
+    const y = ((e.clientY - rect.top) / rect.height) * H
     const t = ((x - M.left) / PLOT_W) * xMax
     setHoverTime(t >= 0 && t <= xMax ? t : null)
+    setPicked(pickable ? nearest(pickable, x, y, scales) : null)
   }
+
+  const onLeave = () => {
+    setHoverTime(null)
+    setPicked(null)
+  }
+
+  const readout = picked && describe
+    ? describe(picked.id)
+    : hover
+      ? `t = ${fmt(hover.time)} с · путь ${fmt(hover.distance, 0)} м · ${fmt(toKmh(hover.speed), 0)} км/ч`
+      : pickable ? 'наведите на точку и кликните' : 'наведите на график'
 
   return (
     <div className="chart">
@@ -68,14 +96,16 @@ export function TimeDistanceChart({ problem, trajectory, overlay, legend, minTim
           <span><i className="swatch line" />траектория</span>
           {legend}
         </div>
-        <div className="readout">
-          {hover
-            ? `t = ${fmt(hover.time)} с · путь ${fmt(hover.distance, 0)} м · ${fmt(toKmh(hover.speed), 0)} км/ч`
-            : 'наведите на график'}
-        </div>
+        <div className="readout">{readout}</div>
       </div>
 
-      <svg viewBox={`0 0 ${W} ${H}`} onMouseMove={onMove} onMouseLeave={() => setHoverTime(null)}>
+      <svg
+        viewBox={`0 0 ${W} ${H}`}
+        onMouseMove={onMove}
+        onMouseLeave={onLeave}
+        onClick={() => picked && onPick?.(picked.id)}
+        className={picked ? 'picking' : undefined}
+      >
         {/* сетка и оси */}
         {timeTicks(xMax).map(t => (
           <g key={`t${t}`}>
@@ -120,15 +150,35 @@ export function TimeDistanceChart({ problem, trajectory, overlay, legend, minTim
           <polyline points={trajectory.map(p => `${sx(p.time)},${sy(p.distance)}`).join(' ')} className="trajectory" />
         )}
 
-        {hover && (
+        {hover && !picked && (
           <g>
             <line x1={sx(hover.time)} x2={sx(hover.time)} y1={M.top} y2={M.top + PLOT_H} className="cursor" />
             <circle cx={sx(hover.time)} cy={sy(hover.distance)} r={3.5} className="cursor-dot" />
           </g>
         )}
+
+        {picked && <circle cx={sx(Math.min(picked.time, xMax))} cy={sy(picked.distance)} r={7} className="pick-ring" />}
       </svg>
     </div>
   )
+}
+
+/** Ближайшая к курсору точка в пределах PICK_RADIUS. */
+function nearest(points: PickPoint[], x: number, y: number, { sx, sy, xMax }: ChartScales): PickPoint | null {
+  let best: PickPoint | null = null
+  let bestDistance = PICK_RADIUS * PICK_RADIUS
+
+  for (const p of points) {
+    const dx = sx(Math.min(p.time, xMax)) - x
+    const dy = sy(p.distance) - y
+    const d = dx * dx + dy * dy
+    if (d < bestDistance) {
+      bestDistance = d
+      best = p
+    }
+  }
+
+  return best
 }
 
 /** Интервалы [от, до, зелёный?] светофора на отрезке [0, xMax]. */

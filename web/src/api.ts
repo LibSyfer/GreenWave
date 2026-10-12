@@ -99,8 +99,8 @@ export function solve(problem: Problem, solver: SolverId, speedStepKmh: number):
   return post('/api/solve', { problem, solver, speedStepKmh })
 }
 
-export function solveDpTrace(problem: Problem, speedStepKmh: number): Promise<DpTraceResponse> {
-  return post('/api/solve/dp/trace', { problem, speedStepKmh })
+export function solveDpTrace(problem: Problem, speedStepKmh: number, timeStep: number): Promise<DpTraceResponse> {
+  return post('/api/solve/dp/trace', { problem, speedStepKmh, timeStep })
 }
 
 async function post<T>(url: string, body: unknown): Promise<T> {
