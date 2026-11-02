@@ -35,6 +35,20 @@ public static class Samples
         InitialSpeed: Kmh(50),
         SafetyMargin: 0);
 
+    public static GreenWaveProblem DpGaComparison() => new(
+        Road: new Road([
+            new Segment(450, new TrafficLight(70, 40, 20)),
+            new Segment(450, new TrafficLight(70, 55, 20)),
+            new Segment(440, new TrafficLight(60, 5, 25)),
+            new Segment(260, new TrafficLight(70, 35, 15)),
+            new Segment(320, new TrafficLight(60, 60, 15)),
+            new Segment(260, null),
+        ]),
+        Vehicle: Car,
+        Limits: new Limits(MinSpeed: Kmh(20), MaxSpeed: Kmh(60), MaxTime: 262),
+        InitialSpeed: 0,
+        SafetyMargin: 0);
+
     public static GreenWaveProblem StopIsBetter(double maxTime = 106) => new(
         Road: new Road([
             new Segment(300, new TrafficLight(60, 0, 30)),
@@ -43,6 +57,21 @@ public static class Samples
         ]),
         Vehicle: Car,
         Limits: new Limits(MinSpeed: Kmh(20), MaxSpeed: Kmh(60), MaxTime: maxTime),
+        InitialSpeed: 0,
+        SafetyMargin: 0);
+
+    public static GreenWaveProblem DpGaVisibleDifference() => new(
+        Road: new Road([
+            new Segment(390, new TrafficLight(100, 20, 15)),
+            new Segment(370, new TrafficLight(50, 45, 25)),
+            new Segment(390, new TrafficLight(50, 45, 25)),
+            new Segment(310, new TrafficLight(60, 55, 20)),
+            new Segment(270, new TrafficLight(80, 25, 20)),
+            new Segment(200, new TrafficLight(50, 0, 20)),
+            new Segment(190, null),
+        ]),
+        Vehicle: Car,
+        Limits: new Limits(MinSpeed: Kmh(20), MaxSpeed: Kmh(60), MaxTime: 328),
         InitialSpeed: 0,
         SafetyMargin: 0);
 }

@@ -30,6 +30,9 @@ export interface PickPoint {
 interface Props {
   problem: Problem
   trajectory: TrajectoryPoint[] | null
+  secondaryTrajectory?: TrajectoryPoint[] | null
+  trajectoryLabel?: string
+  secondaryLabel?: string
   /** Дополнительный слой между светофорами и траекторией. */
   overlay?: (scales: ChartScales) => ReactNode
   /** Дополнительные пункты легенды. */
@@ -44,12 +47,12 @@ interface Props {
 }
 
 /** График «время–расстояние»: фазы светофоров на их позициях и траектория машины. */
-export function TimeDistanceChart({ problem, trajectory, overlay, legend, minTimeExtent = 0, pickable, onPick, describe }: Props) {
+export function TimeDistanceChart({ problem, trajectory, secondaryTrajectory, trajectoryLabel = 'траектория', secondaryLabel = 'ГА', overlay, legend, minTimeExtent = 0, pickable, onPick, describe }: Props) {
   const [hoverTime, setHoverTime] = useState<number | null>(null)
   const [picked, setPicked] = useState<PickPoint | null>(null)
 
   const segments = problem.road.segments
-  const lastTime = trajectory?.[trajectory.length - 1]?.time ?? 0
+  const lastTime = Math.max(trajectory?.[trajectory.length - 1]?.time ?? 0, secondaryTrajectory?.[secondaryTrajectory.length - 1]?.time ?? 0)
   const xMax = niceCeil(Math.max(problem.limits.maxTime, lastTime, minTimeExtent) * 1.03)
 
   // масштабы стабильны между перерисовками от наведения мыши — слой overlay может их мемоизировать
@@ -66,6 +69,7 @@ export function TimeDistanceChart({ problem, trajectory, overlay, legend, minTim
   const { sx, sy, ends } = scales
 
   const hover = hoverTime !== null && trajectory ? pointAt(trajectory, hoverTime) : null
+  const secondaryHover = hoverTime !== null && secondaryTrajectory ? pointAt(secondaryTrajectory, hoverTime) : null
 
   const onMove = (e: React.MouseEvent<SVGSVGElement>) => {
     const rect = e.currentTarget.getBoundingClientRect()
@@ -81,11 +85,14 @@ export function TimeDistanceChart({ problem, trajectory, overlay, legend, minTim
     setPicked(null)
   }
 
-  const readout = picked && describe
+  const comparisonReadout = secondaryTrajectory !== undefined && hoverTime !== null && (hover || secondaryHover)
+    ? `${trajectoryLabel}: ${hover ? `${fmt(hover.distance, 0)} м` : '—'} · ${secondaryLabel}: ${secondaryHover ? `${fmt(secondaryHover.distance, 0)} м` : '—'} · ${fmt(hoverTime)} с`
+    : null
+  const readout = comparisonReadout ?? (picked && describe
     ? describe(picked.id)
     : hover
       ? `t = ${fmt(hover.time)} с · путь ${fmt(hover.distance, 0)} м · ${fmt(toKmh(hover.speed), 0)} км/ч`
-      : pickable ? 'наведите на точку и кликните' : 'наведите на график'
+      : pickable ? 'наведите на точку и кликните' : 'наведите на график')
 
   return (
     <div className="chart">
@@ -93,7 +100,11 @@ export function TimeDistanceChart({ problem, trajectory, overlay, legend, minTim
         <div className="legend">
           <span><i className="swatch green" />зелёный</span>
           <span><i className="swatch red" />красный</span>
-          <span><i className="swatch line" />траектория</span>
+          <span><i className="swatch line" />{trajectoryLabel}</span>
+          {secondaryTrajectory !== undefined && <span>
+            <svg style={{ width: 14, height: 6 }} viewBox="0 0 14 6" aria-hidden="true"><line x1="0" y1="3" x2="14" y2="3" stroke="var(--muted)" strokeWidth="2" strokeDasharray="4 2" /></svg>
+            {secondaryLabel} (пунктир)
+          </span>}
           {legend}
         </div>
         <div className="readout">{readout}</div>
@@ -147,8 +158,10 @@ export function TimeDistanceChart({ problem, trajectory, overlay, legend, minTim
         {overlay?.(scales)}
 
         {trajectory && (
-          <polyline points={trajectory.map(p => `${sx(p.time)},${sy(p.distance)}`).join(' ')} className="trajectory" />
+          <polyline points={trajectory.map(p => `${sx(p.time)},${sy(p.distance)}`).join(' ')} className="trajectory" aria-label={trajectoryLabel} />
         )}
+        {secondaryTrajectory && <polyline points={secondaryTrajectory.map(p => `${sx(p.time)},${sy(p.distance)}`).join(' ')}
+          className="trajectory" style={{ stroke: 'var(--muted)' }} strokeDasharray="7 5" aria-label={secondaryLabel} />}
 
         {hover && !picked && (
           <g>
@@ -158,6 +171,7 @@ export function TimeDistanceChart({ problem, trajectory, overlay, legend, minTim
         )}
 
         {picked && <circle cx={sx(Math.min(picked.time, xMax))} cy={sy(picked.distance)} r={7} className="pick-ring" />}
+        {secondaryHover && !picked && <circle cx={sx(secondaryHover.time)} cy={sy(secondaryHover.distance)} r={3.5} fill="var(--muted)" />}
       </svg>
     </div>
   )
